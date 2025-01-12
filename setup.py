@@ -2,8 +2,8 @@ from setuptools import setup, find_packages
 
 setup(
     name="live_audio_capture",
-    version="0.2.0",
-    author="Your Name",
+    version="0.2.1",
+    author="Sami RAJICHI",
     author_email="semi.rajichi@gmail.com",
     description="A cross-platform utility for capturing live audio from a microphone using FFmpeg.",
     long_description=open("README.md").read(),

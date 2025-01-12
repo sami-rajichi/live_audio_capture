@@ -1,6 +1,7 @@
 import sys
 import numpy as np
 import subprocess
+import platform
 from typing import Generator, List, Optional
 from .exceptions import UnsupportedPlatformError, UnsupportedAudioFormatError
 from .mic_detection import get_default_mic
@@ -14,6 +15,7 @@ class LiveAudioCapture:
     - Continuous listening mode.
     - Dynamic recording based on voice activity.
     - Silence duration threshold for stopping recording.
+    - Optional beep sounds for start/stop feedback.
     """
 
     def __init__(
@@ -26,6 +28,7 @@ class LiveAudioCapture:
         noise_floor_alpha: float = 0.9,
         hysteresis_high: float = 1.5,
         hysteresis_low: float = 0.5,
+        enable_beep: bool = True,
     ):
         """
         Initialize the LiveAudioCapture instance.
@@ -39,11 +42,13 @@ class LiveAudioCapture:
             noise_floor_alpha (float): Smoothing factor for noise floor estimation.
             hysteresis_high (float): Multiplier for the threshold when speech is detected.
             hysteresis_low (float): Multiplier for the threshold when speech is not detected.
+            enable_beep (bool): Whether to play beep sounds when recording starts/stops.
         """
         self.sampling_rate = sampling_rate
         self.chunk_duration = chunk_duration
         self.audio_format = audio_format
         self.channels = channels
+        self.enable_beep = enable_beep
         self.process: Optional[subprocess.Popen] = None
 
         # Initialize VAD
@@ -89,6 +94,30 @@ class LiveAudioCapture:
 
         # Start FFmpeg process
         self.process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    def _play_beep(self, frequency: int, duration: int) -> None:
+        """
+        Play a beep sound with the specified frequency and duration.
+
+        Args:
+            frequency (int): Frequency of the beep sound in Hz.
+            duration (int): Duration of the beep sound in milliseconds.
+        """
+        if not self.enable_beep:
+            return
+
+        if platform.system() == "Windows":
+            # Use winsound for Windows
+            import winsound
+            winsound.Beep(frequency, duration)
+        elif platform.system() == "Darwin":  # macOS
+            # Use afplay for macOS (generate a sine wave using sox)
+            import os
+            os.system(f'play -nq -t alsa synth {duration/1000} sine {frequency}')
+        else:
+            # Use beep for Linux (requires 'beep' package)
+            import os
+            os.system(f'beep -f {frequency} -l {duration}')
 
     def stream_audio(self) -> Generator[np.ndarray, None, None]:
         """Stream live audio from the microphone."""
@@ -144,6 +173,7 @@ class LiveAudioCapture:
                     if not recording:
                         print("Starting recording...")
                         recording = True
+                        self._play_beep(1000, 200)  # High-pitched beep for start
                     speech_segments.append(audio_chunk)
                     silent_frames = 0  # Reset silence counter
                 else:
@@ -154,6 +184,7 @@ class LiveAudioCapture:
                             # Stop recording if silence exceeds the threshold
                             print("Stopping recording due to silence.")
                             recording = False
+                            self._play_beep(500, 200)  # Low-pitched beep for stop
 
                             # Save the recorded speech segment
                             if speech_segments:

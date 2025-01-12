@@ -33,10 +33,11 @@ from live_audio_capture import LiveAudioCapture
 capture = LiveAudioCapture(
     sampling_rate=16000,
     chunk_duration=1,
-    vad_threshold=0.002,
+    vad_threshold=0.001,
     noise_floor_alpha=0.9,
     hysteresis_high=1.5,
     hysteresis_low=0.5,
+    enable_beep=True
 )
 
 # Record audio with advanced VAD and save to a file
