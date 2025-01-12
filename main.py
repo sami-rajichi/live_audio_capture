@@ -28,6 +28,7 @@
 
 
 from live_audio_capture import LiveAudioCapture
+import time
 
 # Initialize the audio capture
 capture = LiveAudioCapture(
@@ -41,4 +42,4 @@ capture = LiveAudioCapture(
 )
 
 # Record audio with advanced VAD and save to a file
-capture.listen_and_record_with_vad(output_file="transcription.wav", silence_duration=2)
+capture.listen_and_record_with_vad(output_file="transcription.mp3", silence_duration=2, format='mp3')
