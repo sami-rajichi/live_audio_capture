@@ -1,16 +1,32 @@
 import sys
 import numpy as np
 import subprocess
-from typing import Generator, Optional
+from typing import Generator, List, Optional
 from .exceptions import UnsupportedPlatformError, UnsupportedAudioFormatError
 from .mic_detection import get_default_mic
+from .vad import VoiceActivityDetector
+from scipy.io.wavfile import write as write_wav
 
 class LiveAudioCapture:
     """
     A cross-platform utility for capturing live audio from a microphone using FFmpeg.
+    Features:
+    - Continuous listening mode.
+    - Dynamic recording based on voice activity.
+    - Silence duration threshold for stopping recording.
     """
 
-    def __init__(self, sampling_rate: int = 16000, chunk_duration: float = 0.1, audio_format: str = "f32le", channels: int = 1):
+    def __init__(
+        self,
+        sampling_rate: int = 16000,
+        chunk_duration: float = 0.1,
+        audio_format: str = "f32le",
+        channels: int = 1,
+        vad_threshold: float = 0.02,
+        noise_floor_alpha: float = 0.9,
+        hysteresis_high: float = 1.5,
+        hysteresis_low: float = 0.5,
+    ):
         """
         Initialize the LiveAudioCapture instance.
 
@@ -19,12 +35,26 @@ class LiveAudioCapture:
             chunk_duration (float): Duration of each audio chunk in seconds (e.g., 0.1).
             audio_format (str): Audio format for FFmpeg output (e.g., "f32le").
             channels (int): Number of audio channels (1 for mono, 2 for stereo).
+            vad_threshold (float): Initial energy threshold for speech detection.
+            noise_floor_alpha (float): Smoothing factor for noise floor estimation.
+            hysteresis_high (float): Multiplier for the threshold when speech is detected.
+            hysteresis_low (float): Multiplier for the threshold when speech is not detected.
         """
         self.sampling_rate = sampling_rate
         self.chunk_duration = chunk_duration
         self.audio_format = audio_format
         self.channels = channels
         self.process: Optional[subprocess.Popen] = None
+
+        # Initialize VAD
+        self.vad = VoiceActivityDetector(
+            sample_rate=sampling_rate,
+            frame_duration=chunk_duration,
+            initial_threshold=vad_threshold,
+            noise_floor_alpha=noise_floor_alpha,
+            hysteresis_high=hysteresis_high,
+            hysteresis_low=hysteresis_low,
+        )
 
         # Determine the input device based on the platform
         if sys.platform == "linux":
@@ -86,8 +116,63 @@ class LiveAudioCapture:
                 # Yield the audio chunk for processing
                 yield audio_chunk
 
+        except KeyboardInterrupt:
+            print("\nRecording interrupted by user.")
         finally:
             self.stop()
+
+    def listen_and_record_with_vad(self, output_file: str = "output.wav", silence_duration: float = 2.0) -> None:
+        """
+        Continuously listen to the microphone and record speech segments.
+
+        Args:
+            output_file (str): Path to save the recorded audio file.
+            silence_duration (float): Duration of silence (in seconds) to stop recording.
+        """
+        speech_segments: List[np.ndarray] = []
+        recording = False
+        silent_frames = 0
+        silence_threshold_frames = int(silence_duration / self.chunk_duration)
+
+        try:
+            for audio_chunk in self.stream_audio():
+                # Process the audio chunk with VAD
+                is_speech = self.vad.process_audio(audio_chunk)
+
+                if is_speech:
+                    # Speech detected
+                    if not recording:
+                        print("Starting recording...")
+                        recording = True
+                    speech_segments.append(audio_chunk)
+                    silent_frames = 0  # Reset silence counter
+                else:
+                    # Silence detected
+                    if recording:
+                        silent_frames += 1
+                        if silent_frames >= silence_threshold_frames:
+                            # Stop recording if silence exceeds the threshold
+                            print("Stopping recording due to silence.")
+                            recording = False
+
+                            # Save the recorded speech segment
+                            if speech_segments:
+                                combined_audio = np.concatenate(speech_segments)
+                                write_wav(output_file, self.sampling_rate, (combined_audio * 32767).astype(np.int16))
+                                print(f"Recording saved to {output_file}")
+                                speech_segments = []  # Reset for the next segment
+                        else:
+                            # Add silence to the current recording
+                            speech_segments.append(audio_chunk)
+
+        except KeyboardInterrupt:
+            print("\nContinuous listening interrupted by user.")
+
+        # Save any remaining speech segments
+        if speech_segments:
+            combined_audio = np.concatenate(speech_segments)
+            write_wav(output_file, self.sampling_rate, (combined_audio * 32767).astype(np.int16))
+            print(f"Final recording saved to {output_file}")
 
     def stop(self):
         """Stop the FFmpeg process."""

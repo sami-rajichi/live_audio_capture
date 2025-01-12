@@ -1,21 +1,43 @@
+# from live_audio_capture import LiveAudioCapture
+# from live_audio_capture.visualization import AudioVisualizer
+
+# # Initialize the audio capture
+# capture = LiveAudioCapture(sampling_rate=16000, chunk_duration=0.5, audio_format="f32le")
+
+# # Initialize the visualizer
+# visualizer = AudioVisualizer(sampling_rate=16000, chunk_duration=0.1)
+
+# # Stream and process audio chunks
+# try:
+#     for audio_chunk in capture.stream_audio():
+#         print(f"Received audio chunk with {len(audio_chunk)} samples")
+
+#         # Pass the audio chunk to the visualizer
+#         visualizer.add_audio_chunk(audio_chunk)
+# except KeyboardInterrupt:
+#     print("Stopping audio capture and visualizer...")
+# finally:
+#     # Stop the visualizer
+#     visualizer.stop()
+
+
+
+
+
+
+
+
 from live_audio_capture import LiveAudioCapture
-from live_audio_capture.visualization import AudioVisualizer
 
 # Initialize the audio capture
-capture = LiveAudioCapture(sampling_rate=16000, chunk_duration=0.5, audio_format="f32le")
+capture = LiveAudioCapture(
+    sampling_rate=16000,
+    chunk_duration=1,
+    vad_threshold=0.002,
+    noise_floor_alpha=0.9,
+    hysteresis_high=1.5,
+    hysteresis_low=0.5,
+)
 
-# Initialize the visualizer
-visualizer = AudioVisualizer(sampling_rate=16000, chunk_duration=0.1)
-
-# Stream and process audio chunks
-try:
-    for audio_chunk in capture.stream_audio():
-        print(f"Received audio chunk with {len(audio_chunk)} samples")
-
-        # Pass the audio chunk to the visualizer
-        visualizer.add_audio_chunk(audio_chunk)
-except KeyboardInterrupt:
-    print("Stopping audio capture and visualizer...")
-finally:
-    # Stop the visualizer
-    visualizer.stop()
+# Record audio with advanced VAD and save to a file
+capture.listen_and_record_with_vad(output_file="transcription.wav", silence_duration=2)
