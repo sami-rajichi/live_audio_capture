@@ -27,19 +27,47 @@
 
 
 
+# from live_audio_capture import LiveAudioCapture
+
+# # Initialize the audio capture
+# capture = LiveAudioCapture(
+#     sampling_rate=16000,
+#     chunk_duration=1,
+#     vad_threshold=0.001,
+#     noise_floor_alpha=0.9,
+#     hysteresis_high=1.5,
+#     hysteresis_low=0.5,
+#     enable_beep=True
+# )
+
+# # Record audio with advanced VAD and save to a file
+# capture.listen_and_record_with_vad(output_file="transcription.mp3", silence_duration=2, format='mp3')
+
+
+
+
+
+
+
 from live_audio_capture import LiveAudioCapture
-import time
 
 # Initialize the audio capture
 capture = LiveAudioCapture(
     sampling_rate=16000,
     chunk_duration=1,
-    vad_threshold=0.001,
+    vad_threshold=0.0005,
     noise_floor_alpha=0.9,
     hysteresis_high=1.5,
     hysteresis_low=0.5,
-    enable_beep=True
+    enable_beep=True,
+    noise_threshold_db= -50.0,
+    low_pass_cutoff=  7800.0
 )
 
 # Record audio with advanced VAD and save to a file
-capture.listen_and_record_with_vad(output_file="transcription.mp3", silence_duration=2, format='mp3')
+capture.listen_and_record_with_vad(
+    output_file="transcription.wav", 
+    silence_duration=2, 
+    format='wav', 
+    enable_noise_canceling=True
+)

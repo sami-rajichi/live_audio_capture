@@ -5,6 +5,7 @@ from typing import Generator, Optional, List
 from .vad import VoiceActivityDetector
 from .exceptions import UnsupportedPlatformError, UnsupportedAudioFormatError
 from .mic_detection import get_default_mic
+from .audio_processing import apply_noise_reduction, apply_low_pass_filter
 from scipy.io.wavfile import write as write_wav
 from pydub import AudioSegment
 
@@ -30,6 +31,8 @@ class LiveAudioCapture:
         hysteresis_high: float = 1.5,
         hysteresis_low: float = 0.5,
         enable_beep: bool = True,
+        noise_threshold_db: float = -50.0,
+        low_pass_cutoff: float = 7800.0
     ):
         """
         Initialize the LiveAudioCapture instance.
@@ -44,15 +47,27 @@ class LiveAudioCapture:
             hysteresis_high (float): Multiplier for the threshold when speech is detected.
             hysteresis_low (float): Multiplier for the threshold when speech is not detected.
             enable_beep (bool): Whether to play beep sounds when recording starts/stops.
+            noise_threshold_db (float): Noise threshold in dB for noise cancellation.
+            low_pass_cutoff (float): Cutoff frequency for the low-pass filter.
         """
         self.sampling_rate = sampling_rate
         self.chunk_duration = chunk_duration
         self.audio_format = audio_format
         self.channels = channels
         self.enable_beep = enable_beep
+        self.noise_threshold_db = noise_threshold_db
+        self.low_pass_cutoff = low_pass_cutoff
         self.process: Optional[subprocess.Popen] = None
         self.is_streaming = False  # Flag to control streaming
         self.is_recording = False  # Flag to control recording
+        
+        # Validate the cutoff frequency
+        nyquist = 0.5 * self.sampling_rate
+        if self.low_pass_cutoff >= nyquist:
+            raise ValueError(
+                f"Cutoff frequency must be less than the Nyquist frequency ({nyquist} Hz). "
+                f"Provided cutoff frequency: {self.low_pass_cutoff} Hz."
+            )
 
         # Initialize VAD
         self.vad = VoiceActivityDetector(
@@ -201,14 +216,39 @@ class LiveAudioCapture:
         audio_segment.export(output_file, format=format)
         print(f"Recording saved to {output_file} in {format.upper()} format.")
 
-    def listen_and_record_with_vad(self, output_file: str = "output.wav", silence_duration: float = 2.0, format: str = "wav") -> None:
+    def process_audio_chunk(self, audio_chunk: np.ndarray, enable_noise_canceling: bool = True) -> np.ndarray:
         """
-        Continuously listen to the microphone and record speech segments.
+        Process an audio chunk with optional noise cancellation.
+
+        Args:
+            audio_chunk (np.ndarray): The audio chunk to process.
+            enable_noise_canceling (bool): Whether to apply noise cancellation.
+
+        Returns:
+            np.ndarray: The processed audio chunk.
+        """
+        if enable_noise_canceling:
+            # Apply noise reduction
+            audio_chunk = apply_noise_reduction(audio_chunk, self.sampling_rate, self.noise_threshold_db)
+            # Apply low-pass filter
+            audio_chunk = apply_low_pass_filter(audio_chunk, self.sampling_rate, self.low_pass_cutoff)
+        return audio_chunk
+
+    def listen_and_record_with_vad(
+        self,
+        output_file: str = "output.wav",
+        silence_duration: float = 2.0,
+        format: str = "wav",
+        enable_noise_canceling: bool = True,
+    ) -> None:
+        """
+        Continuously listen to the microphone and record speech segments with optional noise cancellation.
 
         Args:
             output_file (str): Path to save the recorded audio file.
             silence_duration (float): Duration of silence (in seconds) to stop recording.
             format (str): Output format (e.g., "wav", "mp3", "ogg").
+            enable_noise_canceling (bool): Whether to apply noise cancellation to the audio chunks.
         """
         speech_segments: List[np.ndarray] = []
         self.is_recording = False
@@ -217,11 +257,11 @@ class LiveAudioCapture:
 
         try:
             for audio_chunk in self.stream_audio():
-                # if not self.is_recording:
-                #     break  # Stop recording if the flag is False
+                # Process the audio chunk with optional noise cancellation
+                processed_chunk = self.process_audio_chunk(audio_chunk, enable_noise_canceling)
 
                 # Process the audio chunk with VAD
-                is_speech = self.vad.process_audio(audio_chunk)
+                is_speech = self.vad.process_audio(processed_chunk)
 
                 if is_speech:
                     # Speech detected
@@ -229,7 +269,7 @@ class LiveAudioCapture:
                         print("Starting recording...")
                         self.is_recording = True
                         self._play_beep(1000, 200)  # High-pitched beep for start
-                    speech_segments.append(audio_chunk)
+                    speech_segments.append(processed_chunk)
                     silent_frames = 0  # Reset silence counter
                 else:
                     # Silence detected
@@ -248,7 +288,7 @@ class LiveAudioCapture:
                                 speech_segments = []  # Reset for the next segment
                         else:
                             # Add silence to the current recording
-                            speech_segments.append(audio_chunk)
+                            speech_segments.append(processed_chunk)
 
         except KeyboardInterrupt:
             print("\nContinuous listening interrupted by user.")

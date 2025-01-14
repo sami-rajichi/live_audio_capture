@@ -1,15 +1,25 @@
 from setuptools import setup, find_packages
 
+with open("README.md", "r", encoding="utf-8") as fh:
+    long_description = fh.read()
+    
 setup(
     name="live_audio_capture",
-    version="0.2.2",
+    version="0.3.0",
     author="Sami RAJICHI",
     author_email="semi.rajichi@gmail.com",
     description="A cross-platform utility for capturing live audio from a microphone using FFmpeg.",
-    long_description=open("README.md").read(),
+    long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/sami-rajichi/live_audio_capture",  # Link to your project's repository
     license="MIT",  # License type
+    packages=find_packages(),
+    install_requires=[
+        "numpy",
+        "scipy",
+        "pydub",
+        "pyqtgraph",
+    ],
     classifiers=[
         "Development Status :: 3 - Alpha",  # Project maturity
         "Intended Audience :: Developers",
