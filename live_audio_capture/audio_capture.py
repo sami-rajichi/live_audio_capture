@@ -31,8 +31,13 @@ class LiveAudioCapture:
         hysteresis_high: float = 1.5,
         hysteresis_low: float = 0.5,
         enable_beep: bool = True,
-        noise_threshold_db: float = -50.0,
-        low_pass_cutoff: float = 7800.0
+        low_pass_cutoff: float = 7500.0,
+        stationary_noise_reduction: bool = False,
+        prop_decrease: float = 1.0,  
+        n_std_thresh_stationary: float = 1.5,
+        n_jobs: int = 1, 
+        use_torch: bool = False,
+        device: str = "cuda"
     ):
         """
         Initialize the LiveAudioCapture instance.
@@ -47,20 +52,30 @@ class LiveAudioCapture:
             hysteresis_high (float): Multiplier for the threshold when speech is detected.
             hysteresis_low (float): Multiplier for the threshold when speech is not detected.
             enable_beep (bool): Whether to play beep sounds when recording starts/stops.
-            noise_threshold_db (float): Noise threshold in dB for noise cancellation.
             low_pass_cutoff (float): Cutoff frequency for the low-pass filter.
+            stationary_noise_reduction (bool): Whether to use stationary noise reduction.
+            prop_decrease (float): Proportion to reduce noise by (1.0 = 100%).
+            n_std_thresh_stationary (float): Threshold for stationary noise reduction.
+            n_jobs (int): Number of parallel jobs to run. Set to -1 to use all CPU cores.
+            use_torch (bool): Whether to use the PyTorch version of spectral gating.
+            device (str): Device to run the PyTorch spectral gating on (e.g., "cuda" or "cpu").
         """
         self.sampling_rate = sampling_rate
         self.chunk_duration = chunk_duration
         self.audio_format = audio_format
         self.channels = channels
         self.enable_beep = enable_beep
-        self.noise_threshold_db = noise_threshold_db
         self.low_pass_cutoff = low_pass_cutoff
+        self.stationary_noise_reduction = stationary_noise_reduction
+        self.prop_decrease = prop_decrease
+        self.n_std_thresh_stationary = n_std_thresh_stationary
+        self.n_jobs = n_jobs
+        self.use_torch = use_torch
+        self.device = device
         self.process: Optional[subprocess.Popen] = None
-        self.is_streaming = False  # Flag to control streaming
-        self.is_recording = False  # Flag to control recording
-        
+        self.is_streaming = False
+        self.is_recording = False
+
         # Validate the cutoff frequency
         nyquist = 0.5 * self.sampling_rate
         if self.low_pass_cutoff >= nyquist:
@@ -95,6 +110,9 @@ class LiveAudioCapture:
 
     def _start_ffmpeg_process(self) -> None:
         """Start the FFmpeg process for capturing live audio."""
+        if self.process is not None:
+            return  # FFmpeg process is already running
+
         # Calculate chunk size in bytes
         bytes_per_sample = 4 if self.audio_format == "f32le" else 2  # 32-bit float or 16-bit int
         self.chunk_size = int(self.sampling_rate * self.chunk_duration * self.channels * bytes_per_sample)
@@ -228,27 +246,34 @@ class LiveAudioCapture:
             np.ndarray: The processed audio chunk.
         """
         if enable_noise_canceling:
-            # Apply noise reduction
-            audio_chunk = apply_noise_reduction(audio_chunk, self.sampling_rate, self.noise_threshold_db)
+            # Apply noise reduction using noisereduce
+            audio_chunk = apply_noise_reduction(
+                audio_chunk,
+                self.sampling_rate,
+                stationary=self.stationary_noise_reduction,
+                prop_decrease=self.prop_decrease,
+                n_std_thresh_stationary=self.n_std_thresh_stationary,
+                n_jobs=self.n_jobs,  # Pass the number of parallel jobs
+                use_torch=self.use_torch,  # Enable/disable PyTorch
+                device=self.device,  # Specify the device for PyTorch
+            )
             # Apply low-pass filter
             audio_chunk = apply_low_pass_filter(audio_chunk, self.sampling_rate, self.low_pass_cutoff)
         return audio_chunk
 
-    def listen_and_record_with_vad(
-        self,
-        output_file: str = "output.wav",
+    def listen_and_record_with_vad(self, output_file: str = "output.wav",
         silence_duration: float = 2.0,
         format: str = "wav",
         enable_noise_canceling: bool = True,
     ) -> None:
         """
-        Continuously listen to the microphone and record speech segments with optional noise cancellation.
+        Continuously listen to the microphone and record speech segments.
 
         Args:
             output_file (str): Path to save the recorded audio file.
             silence_duration (float): Duration of silence (in seconds) to stop recording.
             format (str): Output format (e.g., "wav", "mp3", "ogg").
-            enable_noise_canceling (bool): Whether to apply noise cancellation to the audio chunks.
+            enable_noise_canceling (bool): Whether to apply noise cancellation.
         """
         speech_segments: List[np.ndarray] = []
         self.is_recording = False

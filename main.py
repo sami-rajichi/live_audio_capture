@@ -47,21 +47,22 @@
 
 
 
-
+#------------------------------------------------
 
 from live_audio_capture import LiveAudioCapture
 
 # Initialize the audio capture
 capture = LiveAudioCapture(
     sampling_rate=16000,
-    chunk_duration=1,
-    vad_threshold=0.0005,
-    noise_floor_alpha=0.9,
-    hysteresis_high=1.5,
-    hysteresis_low=0.5,
-    enable_beep=True,
-    noise_threshold_db= -50.0,
-    low_pass_cutoff=  7800.0
+    chunk_duration=0.1,
+    vad_threshold=0.0002,  # Initial energy threshold for VAD
+    noise_floor_alpha=0.9,  # Smoothing factor for noise floor estimation
+    hysteresis_high=1.5,  # Hysteresis multiplier for speech detection
+    hysteresis_low=0.5,  # Hysteresis multiplier for silence detection
+    min_energy_threshold=0.0001,  # Minimum energy threshold for VAD
+    smoothing_alpha=0.8,  # Smoothing factor for speech state
+    enable_beep=True,  # Enable beep sounds
+    low_pass_cutoff=7900.0,  # Cutoff frequency for low-pass filter
 )
 
 # Record audio with advanced VAD and save to a file
@@ -71,3 +72,4 @@ capture.listen_and_record_with_vad(
     format='wav', 
     enable_noise_canceling=True
 )
+

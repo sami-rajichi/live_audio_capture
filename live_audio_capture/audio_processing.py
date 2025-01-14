@@ -1,47 +1,59 @@
 import numpy as np
-from scipy.signal import butter, lfilter, stft, istft, resample
-from typing import Optional, Tuple
+from scipy.signal import butter, lfilter, resample
+import noisereduce as nr
 
 def apply_noise_reduction(
     audio_chunk: np.ndarray,
     sampling_rate: int,
-    noise_threshold_db: float = -20.0,  # Less aggressive threshold
-    nperseg: int = 512,  # Larger window size for better frequency resolution
+    stationary: bool = False,
+    prop_decrease: float = 1.0,
+    n_std_thresh_stationary: float = 1.5,
+    n_fft: int = 1024,
+    win_length: int = None,
+    hop_length: int = None,
+    n_jobs: int = 1,  # Number of parallel jobs
+    use_torch: bool = False,  # Use PyTorch for spectral gating
+    device: str = "cuda",  # Device for PyTorch computation
 ) -> np.ndarray:
     """
-    Apply spectral gating noise reduction to the audio chunk.
+    Apply noise reduction using the noisereduce package.
 
     Args:
         audio_chunk (np.ndarray): The audio chunk to process.
         sampling_rate (int): The sample rate of the audio.
-        noise_threshold_db (float): The noise threshold in dB. Frequencies below this threshold will be attenuated.
-        nperseg (int): STFT window size.
+        stationary (bool): Whether to perform stationary noise reduction.
+        prop_decrease (float): Proportion to reduce noise by (1.0 = 100%).
+        n_std_thresh_stationary (float): Number of standard deviations above mean for thresholding.
+        n_fft (int): FFT window size.
+        win_length (int): Window length for STFT.
+        hop_length (int): Hop length for STFT.
+        n_jobs (int): Number of parallel jobs to run. Set to -1 to use all CPU cores.
+        use_torch (bool): Whether to use the PyTorch version of spectral gating.
+        device (str): Device to run the PyTorch spectral gating on (e.g., "cuda" or "cpu").
 
     Returns:
         np.ndarray: The processed audio chunk with reduced noise.
     """
-    # Compute the Short-Time Fourier Transform (STFT)
-    f, t, Zxx = stft(audio_chunk, fs=sampling_rate, nperseg=nperseg, noverlap=nperseg // 2)
-
-    # Convert the STFT magnitude to dB
-    magnitude = np.abs(Zxx)
-    magnitude_db = 20 * np.log10(magnitude + 1e-10)  # Add small epsilon to avoid log(0)
-
-    # Create a noise mask based on the threshold
-    noise_mask = magnitude_db > noise_threshold_db
-
-    # Apply the noise mask to the STFT
-    Zxx_denoised = Zxx * noise_mask
-
-    # Compute the Inverse Short-Time Fourier Transform (ISTFT) to reconstruct the audio
-    _, audio_denoised = istft(Zxx_denoised, fs=sampling_rate, nperseg=nperseg, noverlap=nperseg // 2)
-
-    return audio_denoised
+    # Apply noise reduction using noisereduce
+    reduced_noise = nr.reduce_noise(
+        y=audio_chunk,
+        sr=sampling_rate,
+        stationary=stationary,
+        prop_decrease=prop_decrease,
+        n_std_thresh_stationary=n_std_thresh_stationary,
+        n_fft=n_fft,
+        win_length=win_length,
+        hop_length=hop_length,
+        n_jobs=n_jobs,  # Pass the number of parallel jobs
+        use_torch=use_torch,  # Enable/disable PyTorch
+        device=device,  # Specify the device for PyTorch
+    )
+    return reduced_noise
 
 def apply_low_pass_filter(
     audio_chunk: np.ndarray,
     sampling_rate: int,
-    cutoff_freq: float = 8000.0,  # Higher cutoff frequency for better voice clarity
+    cutoff_freq: float = 7900.0,  # Less than Nyquist frequency (8000 Hz)
 ) -> np.ndarray:
     """
     Apply a low-pass filter to the audio chunk.
@@ -57,7 +69,10 @@ def apply_low_pass_filter(
     # Normalize the cutoff frequency to the range [0, 1]
     nyquist = 0.5 * sampling_rate
     if cutoff_freq >= nyquist:
-        raise ValueError(f"Cutoff frequency must be less than the Nyquist frequency ({nyquist} Hz).")
+        raise ValueError(
+            f"Cutoff frequency must be less than the Nyquist frequency ({nyquist} Hz). "
+            f"Provided cutoff frequency: {cutoff_freq} Hz."
+        )
     normal_cutoff = cutoff_freq / nyquist
 
     # Design the Butterworth filter
