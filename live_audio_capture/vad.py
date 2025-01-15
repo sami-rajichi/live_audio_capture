@@ -1,4 +1,9 @@
 import numpy as np
+import subprocess
+import sys
+from typing import List
+from .mic_detection import get_default_mic
+from .audio_utils import calculate_energy, process_audio_chunk
 
 class VoiceActivityDetector:
     """
@@ -16,7 +21,11 @@ class VoiceActivityDetector:
         aggressiveness: int = 1,  # Aggressiveness level (0, 1, 2, or 3)
         hysteresis_high: float = 1.5,
         hysteresis_low: float = 0.5,
-        enable_noise_canceling: bool = False
+        enable_noise_canceling: bool = False,
+        calibration_duration: float = 2.0,  # Duration of calibration in seconds
+        use_adaptive_threshold: bool = True,  # Enable adaptive thresholding
+        audio_format: str = "f32le",  # Audio format for calibration
+        channels: int = 1
     ):
         """
         Initialize the VoiceActivityDetector.
@@ -28,6 +37,10 @@ class VoiceActivityDetector:
             hysteresis_high (float): Multiplier for the threshold when speech is detected.
             hysteresis_low (float): Multiplier for the threshold when speech is not detected.
             enable_noise_canceling (bool): Whether to apply noise cancellation.
+            calibration_duration (float): Duration of the calibration phase in seconds.
+            use_adaptive_threshold (bool): Whether to use adaptive thresholding.
+            audio_format (str): Audio format for calibration (e.g., "f32le" or "s16le").
+            channels (int): Number of audio channels (1 for mono, 2 for stereo).
         """
         self.sample_rate = sample_rate
         self.frame_duration = frame_duration
@@ -36,59 +49,91 @@ class VoiceActivityDetector:
         self.hysteresis_high = hysteresis_high
         self.hysteresis_low = hysteresis_low
         self.enable_noise_canceling = enable_noise_canceling
+        self.calibration_duration = calibration_duration
+        self.use_adaptive_threshold = use_adaptive_threshold
+        self.audio_format = audio_format
+        self.channels = channels
 
-        # Set initial threshold based on aggressiveness
-        self.initial_threshold = self._get_initial_threshold(aggressiveness)
+        # Calibrate the initial threshold
+        self.initial_threshold = self._calibrate_threshold() if self.use_adaptive_threshold else self._get_manual_threshold()
         self.current_threshold = self.initial_threshold
         self.speech_active = False
 
-        # Debugging: Print initial settings
         print(f"Initialized VAD with aggressiveness={aggressiveness}, initial_threshold={self.initial_threshold:.6f}")
 
-    def _get_initial_threshold(self, aggressiveness: int) -> float:
+    def _calibrate_threshold(self) -> float:
         """
-        Get the initial energy threshold based on the aggressiveness level.
+        Calibrate the initial energy threshold based on the background noise level.
 
-        Args:
-            aggressiveness (int): Aggressiveness level (0, 1, 2, or 3).
+        Returns:
+            float: Calibrated initial energy threshold.
+        """
+        print("Calibrating threshold... Please remain silent for a few seconds.")
+        audio_chunks = self._capture_calibration_audio()
+        background_energy = np.mean([calculate_energy(chunk) for chunk in audio_chunks])
+        print(f"Calibration complete. Background energy: {background_energy:.6f}")
+
+        # Define multipliers based on aggressiveness
+        multipliers = {
+            0: 1.5,  # Least aggressive
+            1: 2.0,
+            2: 2.5,
+            3: 3.0,  # Most aggressive
+        }
+        return background_energy * multipliers.get(self.aggressiveness, 2.0)
+
+    def _capture_calibration_audio(self) -> List[np.ndarray]:
+        """
+        Capture a short audio sample for calibration.
+
+        Returns:
+            List[np.ndarray]: List of audio chunks captured during calibration.
+        """
+        # Start FFmpeg process for calibration
+        command = [
+            "ffmpeg",
+            "-f", "alsa" if sys.platform == "linux" else "avfoundation" if sys.platform == "darwin" else "dshow",
+            "-i", get_default_mic(),
+            "-ar", str(self.sample_rate),
+            "-ac", str(self.channels),
+            "-f", self.audio_format,
+            "-"
+        ]
+        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+        # Capture audio chunks for the calibration duration
+        audio_chunks = []
+        for _ in range(int(self.calibration_duration / self.frame_duration)):
+            raw_data = process.stdout.read(self.frame_size * 4)  # 4 bytes per sample for f32le
+            if not raw_data:
+                break
+            audio_chunk = process_audio_chunk(raw_data, self.audio_format)
+            audio_chunks.append(audio_chunk)
+
+        # Stop the FFmpeg process
+        process.terminate()
+        process.wait()
+
+        return audio_chunks
+
+    def _get_manual_threshold(self) -> float:
+        """
+        Get the initial energy threshold based on the aggressiveness level (manual values).
 
         Returns:
             float: Initial energy threshold.
         """
-        # Adjust these values based on your requirements
-        if aggressiveness == 0:
-            return 0.0005 if not self.enable_noise_canceling else 0.00002 # Least aggressive (lowest threshold)
-        elif aggressiveness == 1:
+        # Manual thresholds
+        if self.aggressiveness == 0:
+            return 0.0005 if not self.enable_noise_canceling else 0.00002  # Least aggressive (lowest threshold)
+        elif self.aggressiveness == 1:
             return 0.001 if not self.enable_noise_canceling else 0.00003
-        elif aggressiveness == 2:
+        elif self.aggressiveness == 2:
             return 0.002 if not self.enable_noise_canceling else 0.00004
-        elif aggressiveness == 3:
-            return 0.005 if not self.enable_noise_canceling else 0.0001 # Most aggressive (highest threshold)
+        elif self.aggressiveness == 3:
+            return 0.005 if not self.enable_noise_canceling else 0.0001  # Most aggressive (highest threshold)
         else:
             raise ValueError("Aggressiveness must be between 0 and 3.")
-
-    def _calculate_energy(self, frame: np.ndarray) -> float:
-        """
-        Calculate the energy of a single audio frame.
-
-        Args:
-            frame (np.ndarray): Audio frame.
-
-        Returns:
-            float: Energy of the frame.
-        """
-        return np.sum(frame**2) / len(frame)
-
-    def _update_threshold(self) -> None:
-        """
-        Update the energy threshold using hysteresis.
-        """
-        if self.speech_active:
-            # Increase threshold slightly to avoid false positives
-            self.current_threshold = self.initial_threshold * self.hysteresis_high
-        else:
-            # Lower threshold to detect speech more sensitively
-            self.current_threshold = self.initial_threshold * self.hysteresis_low
 
     def process_audio(self, audio_chunk: np.ndarray) -> bool:
         """
@@ -101,7 +146,7 @@ class VoiceActivityDetector:
             bool: True if speech is detected, False otherwise.
         """
         # Calculate energy
-        energy = self._calculate_energy(audio_chunk)
+        energy = calculate_energy(audio_chunk)
 
         # Detect speech based on energy
         if energy > self.current_threshold:
@@ -121,3 +166,14 @@ class VoiceActivityDetector:
         )
 
         return self.speech_active
+
+    def _update_threshold(self) -> None:
+        """
+        Update the energy threshold using hysteresis.
+        """
+        if self.speech_active:
+            # Increase threshold slightly to avoid false positives
+            self.current_threshold = self.initial_threshold * self.hysteresis_high
+        else:
+            # Lower threshold to detect speech more sensitively
+            self.current_threshold = self.initial_threshold * self.hysteresis_low

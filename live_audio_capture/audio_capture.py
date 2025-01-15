@@ -38,6 +38,8 @@ class LiveAudioCapture:
         n_jobs: int = 1,
         use_torch: bool = False,
         device: str = "cuda",
+        calibration_duration: float = 2.0,  # Duration of calibration in seconds
+        use_adaptive_threshold: bool = True,  # Enable adaptive thresholding
     ):
         """
         Initialize the LiveAudioCapture instance.
@@ -57,6 +59,8 @@ class LiveAudioCapture:
             n_jobs (int): Number of parallel jobs to run. Set to -1 to use all CPU cores.
             use_torch (bool): Whether to use the PyTorch version of spectral gating.
             device (str): Device to run the PyTorch spectral gating on (e.g., "cuda" or "cpu").
+            calibration_duration (float): Duration of the calibration phase in seconds.
+            use_adaptive_threshold (bool): Whether to use adaptive thresholding for VAD.
         """
         self.sampling_rate = sampling_rate
         self.chunk_duration = chunk_duration
@@ -71,6 +75,8 @@ class LiveAudioCapture:
         self.n_jobs = n_jobs
         self.use_torch = use_torch
         self.device = device
+        self.calibration_duration = calibration_duration
+        self.use_adaptive_threshold = use_adaptive_threshold
         self.process: Optional[subprocess.Popen] = None
         self.is_streaming = False
         self.is_recording = False
@@ -90,7 +96,11 @@ class LiveAudioCapture:
             aggressiveness=aggressiveness,
             hysteresis_high=1.5,
             hysteresis_low=0.5,
-            enable_noise_canceling=self.enable_noise_canceling
+            enable_noise_canceling=self.enable_noise_canceling,
+            calibration_duration=self.calibration_duration,
+            use_adaptive_threshold=self.use_adaptive_threshold,
+            audio_format=self.audio_format,
+            channels=self.channels
         )
 
         # Determine the input device based on the platform

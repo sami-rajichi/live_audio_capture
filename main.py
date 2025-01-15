@@ -61,7 +61,9 @@ capture = LiveAudioCapture(
     enable_beep=True,
     low_pass_cutoff=7500,
     stationary_noise_reduction=True,
-    enable_noise_canceling=True
+    enable_noise_canceling=True,
+    calibration_duration=4.0,
+    use_adaptive_threshold=True,
 )
 
 # Record audio with advanced VAD and save to a file
