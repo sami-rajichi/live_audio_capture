@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
     
 setup(
     name="live_audio_capture",
-    version="0.3.5",
+    version="0.3.6",
     author="Sami RAJICHI",
     author_email="semi.rajichi@gmail.com",
     description="A cross-platform utility for capturing live audio from a microphone using FFmpeg.",
@@ -20,7 +20,8 @@ setup(
         "pydub",
         "pyqtgraph",
         "noisereduce",
-        "sounddevice"
+        "sounddevice",
+        "simpleaudio"
     ],
     classifiers=[
         "Development Status :: 3 - Alpha",  # Project maturity

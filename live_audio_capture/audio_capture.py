@@ -1,4 +1,5 @@
 import sys
+import time
 import numpy as np
 import subprocess
 from typing import Generator, Optional, List
@@ -8,6 +9,7 @@ from .mic_detection import get_default_mic
 from .audio_processing import apply_noise_reduction, apply_low_pass_filter
 from scipy.io.wavfile import write as write_wav
 from pydub import AudioSegment
+import simpleaudio as sa
 
 class LiveAudioCapture:
     """
@@ -26,18 +28,16 @@ class LiveAudioCapture:
         chunk_duration: float = 0.1,
         audio_format: str = "f32le",
         channels: int = 1,
-        vad_threshold: float = 0.02,
-        noise_floor_alpha: float = 0.9,
-        hysteresis_high: float = 1.5,
-        hysteresis_low: float = 0.5,
+        aggressiveness: int = 1,  # Aggressiveness level for VAD
         enable_beep: bool = True,
+        enable_noise_canceling: bool = False,
         low_pass_cutoff: float = 7500.0,
         stationary_noise_reduction: bool = False,
-        prop_decrease: float = 1.0,  
+        prop_decrease: float = 1.0,
         n_std_thresh_stationary: float = 1.5,
-        n_jobs: int = 1, 
+        n_jobs: int = 1,
         use_torch: bool = False,
-        device: str = "cuda"
+        device: str = "cuda",
     ):
         """
         Initialize the LiveAudioCapture instance.
@@ -47,11 +47,9 @@ class LiveAudioCapture:
             chunk_duration (float): Duration of each audio chunk in seconds (e.g., 0.1).
             audio_format (str): Audio format for FFmpeg output (e.g., "f32le").
             channels (int): Number of audio channels (1 for mono, 2 for stereo).
-            vad_threshold (float): Initial energy threshold for speech detection.
-            noise_floor_alpha (float): Smoothing factor for noise floor estimation.
-            hysteresis_high (float): Multiplier for the threshold when speech is detected.
-            hysteresis_low (float): Multiplier for the threshold when speech is not detected.
+            aggressiveness (int): Aggressiveness level for VAD (0 = least aggressive, 3 = most aggressive).
             enable_beep (bool): Whether to play beep sounds when recording starts/stops.
+            enable_noise_canceling (bool): Whether to apply noise cancellation.
             low_pass_cutoff (float): Cutoff frequency for the low-pass filter.
             stationary_noise_reduction (bool): Whether to use stationary noise reduction.
             prop_decrease (float): Proportion to reduce noise by (1.0 = 100%).
@@ -65,6 +63,7 @@ class LiveAudioCapture:
         self.audio_format = audio_format
         self.channels = channels
         self.enable_beep = enable_beep
+        self.enable_noise_canceling = enable_noise_canceling
         self.low_pass_cutoff = low_pass_cutoff
         self.stationary_noise_reduction = stationary_noise_reduction
         self.prop_decrease = prop_decrease
@@ -88,10 +87,10 @@ class LiveAudioCapture:
         self.vad = VoiceActivityDetector(
             sample_rate=sampling_rate,
             frame_duration=chunk_duration,
-            initial_threshold=vad_threshold,
-            noise_floor_alpha=noise_floor_alpha,
-            hysteresis_high=hysteresis_high,
-            hysteresis_low=hysteresis_low,
+            aggressiveness=aggressiveness,
+            hysteresis_high=1.5,
+            hysteresis_low=0.5,
+            enable_noise_canceling=self.enable_noise_canceling
         )
 
         # Determine the input device based on the platform
@@ -102,7 +101,7 @@ class LiveAudioCapture:
         elif sys.platform == "win32":
             self.input_format = "dshow"
         else:
-            raise UnsupportedPlatformError(f"Unsupported platform: {sys.platform}")
+            raise RuntimeError(f"Unsupported platform: {sys.platform}")
 
         # Get the default microphone
         self.input_device = get_default_mic()
@@ -128,12 +127,15 @@ class LiveAudioCapture:
             "-"                           # Output to stdout
         ]
 
-        # Start FFmpeg process
-        self.process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        try:
+            # Start FFmpeg process
+            self.process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        except Exception as e:
+            raise RuntimeError(f"Failed to start FFmpeg process: {e}")
 
     def _play_beep(self, frequency: int, duration: int) -> None:
         """
-        Play a beep sound with the specified frequency and duration.
+        Play a beep sound asynchronously using the simpleaudio library.
 
         Args:
             frequency (int): Frequency of the beep sound in Hz.
@@ -142,20 +144,15 @@ class LiveAudioCapture:
         if not self.enable_beep:
             return
 
-        if sys.platform == "win32":
-            # Use winsound for Windows
-            import winsound
-            winsound.Beep(frequency, duration)
-        elif sys.platform == "darwin":  # macOS
-            # Use afplay for macOS (generate a sine wave using sox)
-            import os
-            os.system(f'play -nq -t alsa synth {duration/1000} sine {frequency}')
-        elif sys.platform == "linux":
-            # Use beep for Linux (requires 'beep' package)
-            import os
-            os.system(f'beep -f {frequency} -l {duration}')
-        else:
-            raise UnsupportedPlatformError(f"Unsupported platform: {sys.platform}")
+        # Generate a sine wave for the beep sound
+        sample_rate = 44100  # Standard sample rate for audio playback
+        t = np.linspace(0, duration / 1000, int(sample_rate * duration / 1000), endpoint=False)
+        waveform = np.sin(2 * np.pi * frequency * t)
+        waveform = (waveform * 32767).astype(np.int16)  # Convert to 16-bit PCM format
+
+        # Play the sound asynchronously
+        play_obj = sa.play_buffer(waveform, num_channels=1, bytes_per_sample=2, sample_rate=sample_rate)
+        play_obj.stop()  # Ensure the sound stops after playing
 
     def stream_audio(self) -> Generator[np.ndarray, None, None]:
         """Stream live audio from the microphone."""
@@ -179,7 +176,7 @@ class LiveAudioCapture:
                 elif self.audio_format == "s16le":
                     audio_chunk = np.frombuffer(raw_data, dtype=np.int16) / 32768.0  # Normalize to [-1, 1]
                 else:
-                    raise UnsupportedAudioFormatError(f"Unsupported audio format: {self.audio_format}")
+                    raise RuntimeError(f"Unsupported audio format: {self.audio_format}")
 
                 # Yield the audio chunk for processing
                 yield audio_chunk
@@ -193,8 +190,11 @@ class LiveAudioCapture:
         """Stop the audio stream and terminate the FFmpeg process."""
         self.is_streaming = False
         if self.process:
-            self.process.terminate()
-            self.process.wait()
+            try:
+                self.process.terminate()
+                self.process.wait(timeout=5)  # Wait for the process to terminate
+            except subprocess.TimeoutExpired:
+                self.process.kill()  # Force kill if it doesn't terminate
             self.process = None
         print("Streaming stopped.")
 
@@ -217,7 +217,7 @@ class LiveAudioCapture:
             # Data is already in 16-bit integer format
             audio_data = audio_data.astype(np.int16)
         else:
-            raise UnsupportedAudioFormatError(f"Unsupported audio format: {self.audio_format}")
+            raise RuntimeError(f"Unsupported audio format: {self.audio_format}")
 
         # Convert the NumPy array to a PyDub AudioSegment
         audio_segment = AudioSegment(
@@ -261,10 +261,11 @@ class LiveAudioCapture:
             audio_chunk = apply_low_pass_filter(audio_chunk, self.sampling_rate, self.low_pass_cutoff)
         return audio_chunk
 
-    def listen_and_record_with_vad(self, output_file: str = "output.wav",
+    def listen_and_record_with_vad(
+        self,
+        output_file: str = "output.wav",
         silence_duration: float = 2.0,
-        format: str = "wav",
-        enable_noise_canceling: bool = True,
+        format: str = "wav"
     ) -> None:
         """
         Continuously listen to the microphone and record speech segments.
@@ -273,7 +274,6 @@ class LiveAudioCapture:
             output_file (str): Path to save the recorded audio file.
             silence_duration (float): Duration of silence (in seconds) to stop recording.
             format (str): Output format (e.g., "wav", "mp3", "ogg").
-            enable_noise_canceling (bool): Whether to apply noise cancellation.
         """
         speech_segments: List[np.ndarray] = []
         self.is_recording = False
@@ -283,7 +283,7 @@ class LiveAudioCapture:
         try:
             for audio_chunk in self.stream_audio():
                 # Process the audio chunk with optional noise cancellation
-                processed_chunk = self.process_audio_chunk(audio_chunk, enable_noise_canceling)
+                processed_chunk = self.process_audio_chunk(audio_chunk, self.enable_noise_canceling)
 
                 # Process the audio chunk with VAD
                 is_speech = self.vad.process_audio(processed_chunk)
@@ -291,9 +291,9 @@ class LiveAudioCapture:
                 if is_speech:
                     # Speech detected
                     if not self.is_recording:
-                        print("Starting recording...")
+                        print("\nStarting recording...")
                         self.is_recording = True
-                        self._play_beep(1000, 200)  # High-pitched beep for start
+                        self._play_beep(600, 200)  # High-pitched beep for start
                     speech_segments.append(processed_chunk)
                     silent_frames = 0  # Reset silence counter
                 else:
@@ -304,7 +304,7 @@ class LiveAudioCapture:
                             # Stop recording if silence exceeds the threshold
                             print("Stopping recording due to silence.")
                             self.is_recording = False
-                            self._play_beep(500, 200)  # Low-pitched beep for stop
+                            self._play_beep(300, 200)  # Low-pitched beep for stop (async)
 
                             # Save the recorded speech segment
                             if speech_segments:

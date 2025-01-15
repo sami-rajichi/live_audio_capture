@@ -4,3 +4,4 @@ pydub
 noisereduce
 pyqtgraph
 sounddevice
+simpleaudio=1.0.4
