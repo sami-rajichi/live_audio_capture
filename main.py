@@ -60,11 +60,18 @@ capture = LiveAudioCapture(
     aggressiveness=1,  
     enable_beep=True,
     low_pass_cutoff=7500,
-    stationary_noise_reduction=True,
-    enable_noise_canceling=True,
+    stationary_noise_reduction=False,
+    enable_noise_canceling=False,
     calibration_duration=4.0,
     use_adaptive_threshold=True,
 )
+
+# List available microphones
+# mics = capture.list_available_mics()
+# print("Available microphones:", mics)
+
+# # Change input device by name
+# capture.change_input_device("Réseau de microphones (Realtek(R) Audio)")  # Replace with a valid microphone name
 
 # Record audio with advanced VAD and save to a file
 capture.listen_and_record_with_vad(
@@ -73,3 +80,5 @@ capture.listen_and_record_with_vad(
     format='wav'
 )
 
+# # Play an audio file
+# capture.play_audio_file("transcription.wav")

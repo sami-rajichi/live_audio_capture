@@ -1,11 +1,10 @@
 import sys
-import time
 import numpy as np
 import subprocess
-from typing import Generator, Optional, List
+from typing import Generator, Optional, List, Dict
 from .vad import VoiceActivityDetector
 from .exceptions import UnsupportedPlatformError, UnsupportedAudioFormatError
-from .mic_detection import get_default_mic
+from .mic_detection import get_default_mic, list_mics
 from .audio_processing import apply_noise_reduction, apply_low_pass_filter
 from scipy.io.wavfile import write as write_wav
 from pydub import AudioSegment
@@ -43,24 +42,6 @@ class LiveAudioCapture:
     ):
         """
         Initialize the LiveAudioCapture instance.
-
-        Args:
-            sampling_rate (int): Sample rate in Hz (e.g., 16000).
-            chunk_duration (float): Duration of each audio chunk in seconds (e.g., 0.1).
-            audio_format (str): Audio format for FFmpeg output (e.g., "f32le").
-            channels (int): Number of audio channels (1 for mono, 2 for stereo).
-            aggressiveness (int): Aggressiveness level for VAD (0 = least aggressive, 3 = most aggressive).
-            enable_beep (bool): Whether to play beep sounds when recording starts/stops.
-            enable_noise_canceling (bool): Whether to apply noise cancellation.
-            low_pass_cutoff (float): Cutoff frequency for the low-pass filter.
-            stationary_noise_reduction (bool): Whether to use stationary noise reduction.
-            prop_decrease (float): Proportion to reduce noise by (1.0 = 100%).
-            n_std_thresh_stationary (float): Threshold for stationary noise reduction.
-            n_jobs (int): Number of parallel jobs to run. Set to -1 to use all CPU cores.
-            use_torch (bool): Whether to use the PyTorch version of spectral gating.
-            device (str): Device to run the PyTorch spectral gating on (e.g., "cuda" or "cpu").
-            calibration_duration (float): Duration of the calibration phase in seconds.
-            use_adaptive_threshold (bool): Whether to use adaptive thresholding for VAD.
         """
         self.sampling_rate = sampling_rate
         self.chunk_duration = chunk_duration
@@ -116,6 +97,51 @@ class LiveAudioCapture:
         # Get the default microphone
         self.input_device = get_default_mic()
         print(f"Using input device: {self.input_device}")
+
+    def list_available_mics(self) -> Dict[str, str]:
+        """
+        List all available microphones on the system.
+
+        Returns:
+            Dict[str, str]: A dictionary mapping microphone names to their device IDs.
+        """
+        return list_mics()
+
+    def change_input_device(self, mic_name: str) -> None:
+        """
+        Change the input device to the specified microphone by name.
+
+        Args:
+            mic_name (str): The name of the microphone to use.
+        """
+        # Get the list of available microphones
+        mics = self.list_available_mics()
+
+        # Check if the microphone name exists in the list
+        if mic_name not in mics:
+            raise ValueError(f"Microphone '{mic_name}' not found. Available microphones: {list(mics.keys())}")
+
+        # Set the input device based on the OS-specific format
+        self.input_device = mics[mic_name]
+        print(f"Changed input device to: {self.input_device}")
+
+    def play_audio_file(self, file_path: str) -> None:
+        """
+        Play an audio file using the simpleaudio library.
+
+        Args:
+            file_path (str): Path to the audio file to play.
+        """
+        try:
+            # Load the audio file using pydub
+            audio = AudioSegment.from_file(file_path)
+            # Convert to raw audio data
+            raw_data = audio.raw_data
+            # Play the audio
+            play_obj = sa.play_buffer(raw_data, num_channels=audio.channels, bytes_per_sample=audio.sample_width, sample_rate=audio.frame_rate)
+            play_obj.wait_done()  # Wait until the audio finishes playing
+        except Exception as e:
+            print(f"Failed to play audio file: {e}")
 
     def _start_ffmpeg_process(self) -> None:
         """Start the FFmpeg process for capturing live audio."""

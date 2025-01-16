@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
     
 setup(
     name="live_audio_capture",
-    version="0.3.7",
+    version="0.3.8",
     author="Sami RAJICHI",
     author_email="semi.rajichi@gmail.com",
     description="A cross-platform utility for capturing live audio from a microphone using FFmpeg.",
