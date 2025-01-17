@@ -1,14 +1,14 @@
 import sys
-import numpy as np
 import subprocess
 from typing import Generator, Optional, List, Dict
 from .vad import VoiceActivityDetector
-from .exceptions import UnsupportedPlatformError, UnsupportedAudioFormatError
-from .mic_detection import get_default_mic, list_mics
-from .audio_processing import apply_noise_reduction, apply_low_pass_filter
+from .audio_noise_reduction import AudioNoiseReduction
+from .audio_utils.mic_utils import MicUtils
+from .audio_utils.audio_processing import AudioProcessing
+from .audio_utils.audio_playback import AudioPlayback
 from scipy.io.wavfile import write as write_wav
 from pydub import AudioSegment
-import simpleaudio as sa
+import numpy as np
 
 class LiveAudioCapture:
     """
@@ -42,6 +42,24 @@ class LiveAudioCapture:
     ):
         """
         Initialize the LiveAudioCapture instance.
+
+        Args:
+            sampling_rate (int): Sample rate in Hz (e.g., 16000).
+            chunk_duration (float): Duration of each audio chunk in seconds (e.g., 0.1).
+            audio_format (str): Audio format for FFmpeg output (e.g., "f32le").
+            channels (int): Number of audio channels (1 for mono, 2 for stereo).
+            aggressiveness (int): Aggressiveness level for VAD (0 = least aggressive, 3 = most aggressive).
+            enable_beep (bool): Whether to play beep sounds when recording starts/stops.
+            enable_noise_canceling (bool): Whether to apply noise cancellation.
+            low_pass_cutoff (float): Cutoff frequency for the low-pass filter.
+            stationary_noise_reduction (bool): Whether to use stationary noise reduction.
+            prop_decrease (float): Proportion to reduce noise by (1.0 = 100%).
+            n_std_thresh_stationary (float): Threshold for stationary noise reduction.
+            n_jobs (int): Number of parallel jobs to run. Set to -1 to use all CPU cores.
+            use_torch (bool): Whether to use the PyTorch version of spectral gating.
+            device (str): Device to run the PyTorch spectral gating on (e.g., "cuda" or "cpu").
+            calibration_duration (float): Duration of the calibration phase in seconds.
+            use_adaptive_threshold (bool): Whether to use adaptive thresholding for VAD.
         """
         self.sampling_rate = sampling_rate
         self.chunk_duration = chunk_duration
@@ -95,7 +113,7 @@ class LiveAudioCapture:
             raise RuntimeError(f"Unsupported platform: {sys.platform}")
 
         # Get the default microphone
-        self.input_device = get_default_mic()
+        self.input_device = MicUtils.get_default_mic()
         print(f"Using input device: {self.input_device}")
 
     def list_available_mics(self) -> Dict[str, str]:
@@ -105,7 +123,7 @@ class LiveAudioCapture:
         Returns:
             Dict[str, str]: A dictionary mapping microphone names to their device IDs.
         """
-        return list_mics()
+        return MicUtils.list_mics()
 
     def change_input_device(self, mic_name: str) -> None:
         """
@@ -114,14 +132,9 @@ class LiveAudioCapture:
         Args:
             mic_name (str): The name of the microphone to use.
         """
-        # Get the list of available microphones
         mics = self.list_available_mics()
-
-        # Check if the microphone name exists in the list
         if mic_name not in mics:
             raise ValueError(f"Microphone '{mic_name}' not found. Available microphones: {list(mics.keys())}")
-
-        # Set the input device based on the OS-specific format
         self.input_device = mics[mic_name]
         print(f"Changed input device to: {self.input_device}")
 
@@ -132,16 +145,42 @@ class LiveAudioCapture:
         Args:
             file_path (str): Path to the audio file to play.
         """
-        try:
-            # Load the audio file using pydub
-            audio = AudioSegment.from_file(file_path)
-            # Convert to raw audio data
-            raw_data = audio.raw_data
-            # Play the audio
-            play_obj = sa.play_buffer(raw_data, num_channels=audio.channels, bytes_per_sample=audio.sample_width, sample_rate=audio.frame_rate)
-            play_obj.wait_done()  # Wait until the audio finishes playing
-        except Exception as e:
-            print(f"Failed to play audio file: {e}")
+        AudioPlayback.play_audio_file(file_path)
+
+    def apply_noise_reduction_to_file(
+        self,
+        input_file: str,
+        output_file: str,
+        stationary: bool = False,
+        prop_decrease: float = 1.0,
+        n_std_thresh_stationary: float = 1.5,
+        n_jobs: int = 1,
+        use_torch: bool = False,
+        device: str = "cuda",
+    ) -> None:
+        """
+        Apply noise reduction to an audio file and save the result.
+
+        Args:
+            input_file (str): Path to the input audio file.
+            output_file (str): Path to save the processed audio file.
+            stationary (bool): Whether to perform stationary noise reduction.
+            prop_decrease (float): Proportion to reduce noise by (1.0 = 100%).
+            n_std_thresh_stationary (float): Threshold for stationary noise reduction.
+            n_jobs (int): Number of parallel jobs to run. Set to -1 to use all CPU cores.
+            use_torch (bool): Whether to use the PyTorch version of spectral gating.
+            device (str): Device to run the PyTorch spectral gating on (e.g., "cuda" or "cpu").
+        """
+        AudioProcessing.apply_noise_reduction_to_file(
+            input_file,
+            output_file,
+            stationary=stationary,
+            prop_decrease=prop_decrease,
+            n_std_thresh_stationary=n_std_thresh_stationary,
+            n_jobs=n_jobs,
+            use_torch=use_torch,
+            device=device,
+        )
 
     def _start_ffmpeg_process(self) -> None:
         """Start the FFmpeg process for capturing live audio."""
@@ -168,27 +207,6 @@ class LiveAudioCapture:
             self.process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         except Exception as e:
             raise RuntimeError(f"Failed to start FFmpeg process: {e}")
-
-    def _play_beep(self, frequency: int, duration: int) -> None:
-        """
-        Play a beep sound asynchronously using the simpleaudio library.
-
-        Args:
-            frequency (int): Frequency of the beep sound in Hz.
-            duration (int): Duration of the beep sound in milliseconds.
-        """
-        if not self.enable_beep:
-            return
-
-        # Generate a sine wave for the beep sound
-        sample_rate = 44100  # Standard sample rate for audio playback
-        t = np.linspace(0, duration / 1000, int(sample_rate * duration / 1000), endpoint=False)
-        waveform = np.sin(2 * np.pi * frequency * t)
-        waveform = (waveform * 32767).astype(np.int16)  # Convert to 16-bit PCM format
-
-        # Play the sound asynchronously
-        play_obj = sa.play_buffer(waveform, num_channels=1, bytes_per_sample=2, sample_rate=sample_rate)
-        play_obj.stop()  # Ensure the sound stops after playing
 
     def stream_audio(self) -> Generator[np.ndarray, None, None]:
         """Stream live audio from the microphone."""
@@ -283,7 +301,7 @@ class LiveAudioCapture:
         """
         if enable_noise_canceling:
             # Apply noise reduction using noisereduce
-            audio_chunk = apply_noise_reduction(
+            audio_chunk = AudioNoiseReduction.apply_noise_reduction(
                 audio_chunk,
                 self.sampling_rate,
                 stationary=self.stationary_noise_reduction,
@@ -294,7 +312,7 @@ class LiveAudioCapture:
                 device=self.device,  # Specify the device for PyTorch
             )
             # Apply low-pass filter
-            audio_chunk = apply_low_pass_filter(audio_chunk, self.sampling_rate, self.low_pass_cutoff)
+            audio_chunk = AudioNoiseReduction.apply_low_pass_filter(audio_chunk, self.sampling_rate, self.low_pass_cutoff)
         return audio_chunk
 
     def listen_and_record_with_vad(
@@ -329,7 +347,7 @@ class LiveAudioCapture:
                     if not self.is_recording:
                         print("\nStarting recording...")
                         self.is_recording = True
-                        self._play_beep(600, 200)  # High-pitched beep for start
+                        AudioPlayback.play_beep(600, 200)  # High-pitched beep for start
                     speech_segments.append(processed_chunk)
                     silent_frames = 0  # Reset silence counter
                 else:
@@ -340,7 +358,7 @@ class LiveAudioCapture:
                             # Stop recording if silence exceeds the threshold
                             print("Stopping recording due to silence.")
                             self.is_recording = False
-                            self._play_beep(300, 200)  # Low-pitched beep for stop (async)
+                            AudioPlayback.play_beep(300, 200)  # Low-pitched beep for stop (async)
 
                             # Save the recorded speech segment
                             if speech_segments:
@@ -359,12 +377,10 @@ class LiveAudioCapture:
             combined_audio = np.concatenate(speech_segments)
             self.save_recording(combined_audio, output_file, format=format)
 
-    def stop_recording(self) -> None:
-        """Stop the recording process."""
-        self.is_recording = False
-        print("Recording stopped.")
-
     def stop(self):
         """Stop both streaming and recording."""
         self.stop_streaming()
-        self.stop_recording()
+        
+        # Stop the recording process.
+        self.is_recording = False
+        print("Recording stopped.")

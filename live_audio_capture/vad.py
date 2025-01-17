@@ -2,8 +2,8 @@ import numpy as np
 import subprocess
 import sys
 from typing import List
-from .mic_detection import get_default_mic
-from .audio_utils import calculate_energy, process_audio_chunk
+from .audio_utils.audio_processing import AudioProcessing
+from .audio_utils.mic_utils import MicUtils
 
 class VoiceActivityDetector:
     """
@@ -70,7 +70,7 @@ class VoiceActivityDetector:
         """
         print("Calibrating threshold... Please remain silent for a few seconds.")
         audio_chunks = self._capture_calibration_audio()
-        background_energy = np.mean([calculate_energy(chunk) for chunk in audio_chunks])
+        background_energy = np.mean([AudioProcessing.calculate_energy(chunk) for chunk in audio_chunks])
         print(f"Calibration complete. Background energy: {background_energy:.6f}")
 
         # Define multipliers based on aggressiveness
@@ -93,7 +93,7 @@ class VoiceActivityDetector:
         command = [
             "ffmpeg",
             "-f", "alsa" if sys.platform == "linux" else "avfoundation" if sys.platform == "darwin" else "dshow",
-            "-i", get_default_mic(),
+            "-i", MicUtils.get_default_mic(),
             "-ar", str(self.sample_rate),
             "-ac", str(self.channels),
             "-f", self.audio_format,
@@ -107,7 +107,7 @@ class VoiceActivityDetector:
             raw_data = process.stdout.read(self.frame_size * 4)  # 4 bytes per sample for f32le
             if not raw_data:
                 break
-            audio_chunk = process_audio_chunk(raw_data, self.audio_format)
+            audio_chunk = AudioProcessing.process_audio_chunk(raw_data, self.audio_format)
             audio_chunks.append(audio_chunk)
 
         # Stop the FFmpeg process
@@ -146,7 +146,7 @@ class VoiceActivityDetector:
             bool: True if speech is detected, False otherwise.
         """
         # Calculate energy
-        energy = calculate_energy(audio_chunk)
+        energy = AudioProcessing.calculate_energy(audio_chunk)
 
         # Detect speech based on energy
         if energy > self.current_threshold:

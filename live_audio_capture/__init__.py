@@ -1,13 +1,19 @@
+# live_audio_capture/__init__.py
 from .audio_capture import LiveAudioCapture
-from .audio_processing import apply_noise_reduction, resample_audio
+from .audio_noise_reduction import AudioNoiseReduction
 from .visualization import AudioVisualizer
-from .exceptions import UnsupportedPlatformError, UnsupportedAudioFormatError
+from .vad import VoiceActivityDetector
+from .audio_utils.mic_utils import MicUtils
+from .audio_utils.audio_processing import AudioProcessing
+from .audio_utils.audio_playback import AudioPlayback
 
 __all__ = [
     "LiveAudioCapture",
-    "apply_noise_reduction",
-    "resample_audio",
+    "AudioNoiseReduction",
+    "AudioUtils",
     "AudioVisualizer",
-    "UnsupportedPlatformError",
-    "UnsupportedAudioFormatError",
+    "VoiceActivityDetector",
+    "MicUtils",
+    "AudioProcessing",
+    "AudioPlayback"
 ]

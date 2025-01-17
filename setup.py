@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
     
 setup(
     name="live_audio_capture",
-    version="0.3.8",
+    version="0.4.1",
     author="Sami RAJICHI",
     author_email="semi.rajichi@gmail.com",
     description="A cross-platform utility for capturing live audio from a microphone using FFmpeg.",
@@ -29,9 +29,6 @@ setup(
         "Intended Audience :: Science/Research",
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.10",
-        "Programming Language :: Python :: 3.11",
-        "Programming Language :: Python :: 3.12",
         "Operating System :: OS Independent",
         "Topic :: Multimedia :: Sound/Audio",
         "Topic :: Software Development :: Libraries :: Python Modules",
