@@ -1,7 +1,6 @@
-"""
 # Live Audio Capture
 
-![Python Version](https://img.shields.io/badge/python-3.7%2B-blue)
+![Python Version](https://img.shields.io/badge/python-3.9%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![PyPI Version](https://img.shields.io/pypi/v/live_audio_capture)
 
@@ -19,11 +18,6 @@
 5. **Customizable**: Highly configurable parameters for sampling rate, chunk duration, noise reduction, and more.
 6. **Real-Time Visualization**: Visualize audio waveforms, frequency spectra, and spectrograms in real-time.
 7. **Easy to Use**: Simple API for quick integration into your projects.
-
-### Comparison to Other Packages
-- **Compared to `pyaudio`**: Provides higher-level abstractions for common tasks like VAD and noise reduction.
-- **Compared to `sounddevice`**: Offers built-in real-time visualization and advanced noise reduction.
-- **Compared to `webrtcvad`**: More flexible and customizable, with support for real-time processing and visualization.
 
 ---
 
@@ -55,27 +49,27 @@
 ## Installation
 
 ### Requirements
-- Python 3.7 or higher
+- Python 3.9 or higher
 - FFmpeg (for audio file handling)
 - Microphone access
 
 ### Install the Package
 You can install the package via pip:
 
-;;;bash
+```bash
 pip install live_audio_capture
-;;;
+```
 
 ### Install FFmpeg
 - **Linux**:
-  ;;;bash
+  ```bash
   sudo apt update
   sudo apt install ffmpeg
-  ;;;
+  ```
 - **macOS** (using Homebrew):
-  ;;;bash
+  ```bash
   brew install ffmpeg
-  ;;;
+  ```
 - **Windows**: Download FFmpeg from [https://ffmpeg.org/download.html](https://ffmpeg.org/download.html) and add it to your system's `PATH`.
 
 ---
@@ -85,7 +79,7 @@ pip install live_audio_capture
 ### Basic Example
 Capture audio with voice activity detection and save it to a file:
 
-;;;python
+```python
 from live_audio_capture import LiveAudioCapture
 
 # Initialize the audio capture
@@ -105,12 +99,12 @@ capture.listen_and_record_with_vad(
 
 # Stop the capture
 capture.stop()
-;;;
+```
 
 ### Real-Time Visualization
 Visualize audio in real-time:
 
-;;;python
+```python
 from live_audio_capture import LiveAudioCapture, AudioVisualizer
 
 # Initialize the audio capture
@@ -122,12 +116,12 @@ visualizer = AudioVisualizer(sampling_rate=44100, chunk_duration=0.1)
 # Stream audio and visualize it
 for audio_chunk in capture.stream_audio():
     visualizer.add_audio_chunk(audio_chunk)
-;;;
+```
 
 ### Advanced Example
 Use all available parameters for maximum customization:
 
-;;;python
+```python
 from live_audio_capture import LiveAudioCapture
 
 # Initialize the audio capture with all parameters
@@ -159,7 +153,7 @@ capture.listen_and_record_with_vad(
 
 # Stop the capture
 capture.stop()
-;;;
+```
 
 ---
 
@@ -223,11 +217,11 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 ---
 
 ## Support
-For questions, issues, or feature requests, please open an issue on [GitHub](https://github.com/yourusername/live_audio_capture/issues).
+For questions, issues, or feature requests, please open an issue on [GitHub](https://github.com/sami-rajichi/live_audio_capture/issues).
 
 ---
 
 ## Final Words
-If you find this package useful, please consider leaving a ⭐ star on the [GitHub repository](https://github.com/yourusername/live_audio_capture). Your support motivates us to keep improving! If you have any suggestions for optimization or new features, don't hesitate to reach out. We'd love to hear from you!
+If you find this package useful, please consider leaving a ⭐ star on the [GitHub repository](https://github.com/sami-rajichi/live_audio_capture). Your support motivates us to keep improving! If you have any suggestions for optimization or new features, don't hesitate to reach out. We'd love to hear from you!
 
 """
