@@ -1,5 +1,5 @@
 # examples/noise_reduction_on_file.py
-from live_audio_capture.audio_utils import AudioProcessing
+from live_audio_capture.audio_utils import AudioProcessing, AudioPlayback
 
 # Apply noise reduction to a pre-recorded file
 AudioProcessing.apply_noise_reduction_to_file(
@@ -12,5 +12,7 @@ AudioProcessing.apply_noise_reduction_to_file(
     use_torch=False,  # Disable PyTorch for noise reduction
     device="cpu",  # Use CPU for noise reduction
 )
+
+AudioPlayback.play_audio_file("output.wav")
 
 print("Noise reduction applied and saved to output.wav.")
