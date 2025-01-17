@@ -1,12 +1,11 @@
 # examples/basic_capture.py
-import time
 from live_audio_capture import LiveAudioCapture
 
 # Initialize the audio capture
 capture = LiveAudioCapture(
     sampling_rate=16000,  # Sample rate in Hz
     chunk_duration=0.3,   # Duration of each audio chunk in seconds
-    audio_format="f32le", # Audio format
+    audio_format="f32le",  # Audio format
     channels=1,           # Mono audio
     aggressiveness=1,     # VAD aggressiveness level
     enable_beep=True,     # Play beep sounds when recording starts/stops

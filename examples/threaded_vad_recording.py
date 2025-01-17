@@ -9,7 +9,7 @@ capture = LiveAudioCapture(
     chunk_duration=0.3,
     audio_format="f32le",
     channels=1,
-    aggressiveness=1, 
+    aggressiveness=1,
     enable_beep=True,
     enable_noise_canceling=False,
     low_pass_cutoff=7500.0,
@@ -23,13 +23,15 @@ capture = LiveAudioCapture(
     use_adaptive_threshold=True,
 )
 
+
 # Function to start recording with VAD
 def record_with_vad():
     capture.listen_and_record_with_vad(
         output_file="output.wav",
         silence_duration=2.0,
-        format="wav",
+        format="wav"
     )
+
 
 # Start the recording in a separate thread
 recording_thread = threading.Thread(target=record_with_vad)

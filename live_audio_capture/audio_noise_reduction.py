@@ -2,6 +2,7 @@ import numpy as np
 from scipy.signal import butter, lfilter, resample
 import noisereduce as nr
 
+
 class AudioNoiseReduction:
     """
     A utility class for audio processing tasks such as noise reduction, filtering, and resampling.

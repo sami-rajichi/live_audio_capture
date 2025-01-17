@@ -4,6 +4,7 @@ import re
 import sys
 from typing import Dict
 
+
 class MicUtils:
     """
     Utilities for managing and interacting with microphones.

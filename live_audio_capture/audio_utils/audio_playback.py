@@ -3,6 +3,7 @@ import numpy as np
 import simpleaudio as sa
 from pydub import AudioSegment
 
+
 class AudioPlayback:
     """
     Utilities for playing audio files and sounds.

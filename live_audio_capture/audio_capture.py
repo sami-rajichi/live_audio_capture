@@ -6,9 +6,9 @@ from .audio_noise_reduction import AudioNoiseReduction
 from .audio_utils.mic_utils import MicUtils
 from .audio_utils.audio_processing import AudioProcessing
 from .audio_utils.audio_playback import AudioPlayback
-from scipy.io.wavfile import write as write_wav
 from pydub import AudioSegment
 import numpy as np
+
 
 class LiveAudioCapture:
     """
@@ -380,7 +380,7 @@ class LiveAudioCapture:
     def stop(self):
         """Stop both streaming and recording."""
         self.stop_streaming()
-        
+
         # Stop the recording process.
         self.is_recording = False
         print("Recording stopped.")

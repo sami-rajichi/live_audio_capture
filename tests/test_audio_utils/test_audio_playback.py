@@ -1,6 +1,8 @@
 # tests/test_audio_playback.py
+import os
 import unittest
 from live_audio_capture.audio_utils.audio_playback import AudioPlayback
+
 
 class TestAudioPlayback(unittest.TestCase):
     def test_play_audio_file(self):
@@ -14,13 +16,13 @@ class TestAudioPlayback(unittest.TestCase):
         AudioPlayback.play_audio_file(input_file)
 
         # Clean up test file
-        import os
         os.remove(input_file)
 
     def test_play_beep(self):
         """Test playing a beep sound."""
         # Play a beep (this test only checks if the method runs without errors)
         AudioPlayback.play_beep(frequency=440, duration=100)
+
 
 if __name__ == "__main__":
     unittest.main()

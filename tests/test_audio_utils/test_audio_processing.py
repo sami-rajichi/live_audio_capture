@@ -4,6 +4,7 @@ import os
 import numpy as np
 from live_audio_capture.audio_utils.audio_processing import AudioProcessing
 
+
 class TestAudioProcessing(unittest.TestCase):
     def test_calculate_energy(self):
         """Test calculating the energy of an audio chunk."""
@@ -23,7 +24,7 @@ class TestAudioProcessing(unittest.TestCase):
         # Create a dummy input file (you can replace this with a real file)
         input_file = "./tests/test_audio_utils/test_input.wav"
         output_file = "./tests/test_audio_utils/test_output.wav"
-        
+
         # Apply noise reduction
         AudioProcessing.apply_noise_reduction_to_file(
             input_file=input_file,
@@ -41,6 +42,7 @@ class TestAudioProcessing(unittest.TestCase):
 
         # Clean up output file
         os.remove(output_file)
+
 
 if __name__ == "__main__":
     unittest.main()

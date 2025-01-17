@@ -5,6 +5,7 @@ from typing import List
 from .audio_utils.audio_processing import AudioProcessing
 from .audio_utils.mic_utils import MicUtils
 
+
 class VoiceActivityDetector:
     """
     A simplified voice activity detector (VAD) similar to WebRTC VAD.

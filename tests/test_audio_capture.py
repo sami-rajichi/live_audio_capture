@@ -2,6 +2,7 @@
 import unittest
 from live_audio_capture import LiveAudioCapture
 
+
 class TestLiveAudioCapture(unittest.TestCase):
     def test_initialization(self):
         """Test initializing the LiveAudioCapture class."""
@@ -27,6 +28,7 @@ class TestLiveAudioCapture(unittest.TestCase):
             first_mic_name = list(mics.keys())[0]
             capture.change_input_device(first_mic_name)
             self.assertEqual(capture.input_device, mics[first_mic_name])
+
 
 if __name__ == "__main__":
     unittest.main()

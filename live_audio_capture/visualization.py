@@ -6,6 +6,7 @@ import queue
 from scipy.signal import spectrogram
 from typing import Optional
 
+
 class AudioVisualizer:
     """
     A standalone real-time audio visualizer using PyQtGraph with a refined color scheme.
@@ -43,7 +44,7 @@ class AudioVisualizer:
         self.win.show()
 
         # Custom font for labels
-        font = QtGui.QFont("Arial", 12)
+        _ = QtGui.QFont("Arial", 12)
         pg.setConfigOptions(antialias=True, useNumba=True)
 
         # Create a plot for the waveform

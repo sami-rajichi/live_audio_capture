@@ -3,6 +3,7 @@ import numpy as np
 from pydub import AudioSegment
 import noisereduce as nr
 
+
 class AudioProcessing:
     """
     Utilities for processing audio data.
