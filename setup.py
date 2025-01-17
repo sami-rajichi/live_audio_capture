@@ -11,28 +11,26 @@ setup(
     description="A cross-platform utility for capturing live audio from a microphone using FFmpeg.",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/sami-rajichi/live_audio_capture",  # Link to your project's repository
-    license="MIT",  # License type
+    url="https://github.com/sami-rajichi/live_audio_capture",
+    license="MIT",
     packages=find_packages(),
     install_requires=[
-        "numpy",
-        "scipy",
-        "pydub",
-        "pyqtgraph",
-        "noisereduce",
-        "sounddevice",
-        "simpleaudio"
+        "numpy>=1.26.4",
+        "scipy>=1.12.0",
+        "pydub>=0.25.1",
+        "pyqtgraph>=0.13.7",
+        "noisereduce>=3.0.3",
+        "sounddevice>=0.4.6",
+        "simpleaudio>=1.0.4"
     ],
     extras_require={
         "dev": [
-            "pytest>=6.0",
-            "pytest-cov",
-            "black",
-            "flake8",
-            "twine",
+            "pytest>=8.3.4",
+            "flake8>=7.1.1",
+            "twine>=6.0.1",
         ],
         "torch": [
-            "torch>=1.7.0",
+            "torch>=2.2.1",
         ]
     },
     classifiers=[
@@ -41,8 +39,6 @@ setup(
         "Intended Audience :: Science/Research",
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.7",
-        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
@@ -54,5 +50,10 @@ setup(
     ],
     keywords="audio capture ffmpeg real-time visualization",
     test_suite="tests",
-    tests_require=["pytest>=6.0.0"],
+    tests_require=["pytest>=8.3.0"],
+    python_requires=">=3.9",
+    project_urls={
+        "Bug Reports": "https://github.com/sami-rajichi/live_audio_capture/issues",
+        "Source": "https://github.com/sami-rajichi/live_audio_capture"
+    }
 )
