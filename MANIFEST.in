@@ -1,0 +1,31 @@
+# Include the README file
+include README.md
+
+# Include the LICENSE file
+include LICENSE
+
+# Include the CONTRIBUTING file
+include CONTRIBUTING
+
+# Include the requirements.txt file
+include requirements.txt
+
+# Include the pyproject.toml file
+include pyproject.toml
+
+# Include the setup.cfg file
+include setup.cfg
+
+# Recursively include all files in the docs directory
+recursive-include docs *
+
+# Exclude unnecessary files
+global-exclude *.pyc
+global-exclude *.pyo
+global-exclude *.pyd
+global-exclude *.so
+global-exclude *.dll
+global-exclude *.DS_Store
+global-exclude *.swp
+global-exclude *.bak
+global-exclude *.tmp
