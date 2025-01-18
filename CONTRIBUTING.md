@@ -1,4 +1,3 @@
-"""
 # Contributing to Live Audio Capture
 
 Thank you for your interest in contributing to **Live Audio Capture**! We welcome contributions from everyone, whether you're fixing a bug, adding a feature, or improving documentation. This guide will help you get started.
@@ -109,5 +108,3 @@ If you encounter a bug or have a feature request, please:
 ## Thank You!
 
 Your contributions help make **Live Audio Capture** better for everyone. We appreciate your time and effort!
-
-"""

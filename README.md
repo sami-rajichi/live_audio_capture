@@ -223,5 +223,3 @@ For questions, issues, or feature requests, please open an issue on [GitHub](htt
 
 ## Final Words
 If you find this package useful, please consider leaving a ⭐ star on the [GitHub repository](https://github.com/sami-rajichi/live_audio_capture). Your support motivates us to keep improving! If you have any suggestions for optimization or new features, don't hesitate to reach out. We'd love to hear from you!
-
-"""
