@@ -3,6 +3,7 @@
 ![Python Version](https://img.shields.io/badge/python-3.9%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![PyPI Version](https://img.shields.io/pypi/v/live_audio_capture)
+[![Documentation](https://img.shields.io/badge/docs-live_audio_capture-blue)](https://sami-rajichi.github.io/live_audio_capture/)
 
 **Live Audio Capture** is a cross-platform Python package designed for capturing, processing, and analyzing live audio from a microphone in real-time. It provides a robust and flexible interface for voice activity detection (VAD), noise reduction, audio visualization, and more. Whether you're building a voice assistant, a transcription tool, or a real-time audio analysis application, this package has you covered.
 
@@ -207,12 +208,12 @@ The visualization module provides insights into:
 ---
 
 ## Contributing
-Contributions are welcome! Please read the [Contributing Guidelines](CONTRIBUTING.md) for details.
+Contributions are welcome! Please read the [Contributing Guidelines](https://github.com/sami-rajichi/live_audio_capture/blob/main/CONTRIBUTING.md) for details.
 
 ---
 
 ## License
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License. See the [LICENSE](https://github.com/sami-rajichi/live_audio_capture/blob/main/LICENSE) file for details.
 
 ---
 

@@ -9,3 +9,10 @@ pytest==8.3.4
 flake8==7.1.1
 twine==6.0.1
 torch==2.2.1
+
+# For documentation
+mkdocs==1.6.1
+mkdocs-material==9.5.50
+mkdocstrings==0.27.0
+mkdocstrings-python==1.13.0
+ghp-import=1.16.0

@@ -54,6 +54,7 @@ setup(
     python_requires=">=3.9",
     project_urls={
         "Bug Reports": "https://github.com/sami-rajichi/live_audio_capture/issues",
-        "Source": "https://github.com/sami-rajichi/live_audio_capture"
+        "Source": "https://github.com/sami-rajichi/live_audio_capture",
+        "Homepage": "https://sami-rajichi.github.io/live_audio_capture/"
     }
 )
